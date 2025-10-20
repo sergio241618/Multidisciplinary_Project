@@ -1,0 +1,13 @@
+# Archivos de compilación y dependencias de ESP-IDF
+/build/
+/sdkconfig
+
+# Carpeta del entorno virtual de Python
+/venv/
+
+# Archivos de configuración local del editor de código (VSCode)
+.vscode/
+
+# Archivos temporales generados por Python
+__pycache__/
+*.pyc
