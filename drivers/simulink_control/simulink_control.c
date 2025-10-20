@@ -14,6 +14,10 @@
 #include "simulink_control.h"
 #include "rtwtypes.h"
 
+#define Kp 1.0f  //0.36931f
+#define Ki 32.962f
+#define Kd 0.11452f
+
 /* --- Global Variable Definitions --- */
 DW_simulink_control_T simulink_control_DW;
 ExtU_simulink_control_T simulink_control_U;
@@ -31,13 +35,13 @@ void simulink_control_step(void)
 
   /* --- 1. CALCULATE THE DERIVATIVE (D) TERM --- */
   // This block implements a discrete-time derivative with a low-pass filter.
-  denAccum = 0.11452 * simulink_control_U.error_signal - -0.009931682274340237 *
+  denAccum = Kd * simulink_control_U.error_signal - -0.009931682274340237 *
     simulink_control_DW.FilterDifferentiatorTF_states;
 
   /* --- 2. CALCULATE THE INTEGRAL (I) TERM --- */
   // This block implements the discrete-time integrator. It accumulates the error over time.
   // Equation: I(k) = I(k-1) + Ki * error(k) * sample_time
-  simulink_control_DW.Integrator_DSTATE += 32.962 *
+  simulink_control_DW.Integrator_DSTATE += Ki *
     simulink_control_U.error_signal * 0.01;
 
   /* --- 3. CALCULATE THE FINAL CONTROL OUTPUT (u_k) --- */
@@ -51,7 +55,7 @@ void simulink_control_step(void)
          + simulink_control_DW.Integrator_DSTATE)  // Integral (I) term
     
     // --- Global Proportional Gain (Kp) ---
-    ) * 0.36931;
+    ) * Kp;
 
   /* --- 4. UPDATE STATE FOR NEXT ITERATION --- */
   // The current state of the derivative filter becomes the "previous" state for the next step.

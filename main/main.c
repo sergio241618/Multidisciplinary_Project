@@ -10,6 +10,7 @@
 #include "trajectory_generator.h"
 #include "simulink_control.h"
 
+#define ERROR_SCALING_FACTOR 400.0f
 #define SIMULATE_ENCODER 0
 
 const int TS_MS = 10;
@@ -69,7 +70,9 @@ void app_main(void) {
         #endif
 
         float error = reference_rpm - measured_rpm;
-        simulink_control_U.error_signal = error;
+        float scaled_error = error / ERROR_SCALING_FACTOR;
+        simulink_control_U.error_signal = scaled_error;
+
         simulink_control_step();
         float u_k = simulink_control_Y.u_k;
 
