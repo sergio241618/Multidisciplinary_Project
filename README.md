@@ -1,0 +1,1 @@
+This is the repo for the multidisciplinary project which has a PID controller implemented with Embedded Coder on Simulink and also has a Python Plotter on which we can observe the Bezier curve (reference speed), the measured speed and the control signal.
