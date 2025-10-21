@@ -3,16 +3,13 @@
 #include "soc/gpio_struct.h"
 #include "freertos/FreeRTOS.h"
 
-#define CYCLE_ADJUSTMENT 8.0f
-#define CONVERSION_TO_RPM 60000.0f
-
 // --- Global Variables for the Encoder ---
 static volatile long pulse_count = 0;
 static volatile uint8_t old_AB = 0;
 static const int8_t QEM[16] = {0,-1,1,0,1,0,0,-1,-1,0,0,1,0,1,-1,0};
 
 // --- State variable for the filter ---
-float cycles = (float)pulses / 8.0f;een function calls.
+// 'static' ensures this variable retains its value between calls to encoder_get_rpm().
 static float filtered_rpm = 0.0f;
 
 // The Interrupt Service Routine (ISR) that runs every time an encoder pin changes state.
@@ -59,10 +56,10 @@ float encoder_get_rpm(long delta_time_ms) {
     // --- RPM Calculation Logic ---
     float cycles = (float)pulses / CYCLE_ADJUSTMENT;
     float revolutions = cycles / PPR;
-    // Raw, noisy RPM calculation
+    // This is the raw, noisy RPM calculation
     float raw_rpm = (revolutions / delta_time_ms) * CONVERSION_TO_RPM;
 
-    // --- NEW: Apply the Exponential Moving Average (EMA) filter ---
+    // --- Apply the Exponential Moving Average (EMA) filter ---
     // The new filtered value is a weighted average of the new raw measurement
     // and the previous filtered value.
     // Equation: y(k) = alpha * x(k) + (1 - alpha) * y(k-1)

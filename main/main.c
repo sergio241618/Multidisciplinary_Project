@@ -12,7 +12,7 @@
 
 // --- Tuning and Mode Parameters ---
 // A factor to scale down the error before it enters the PID controller.
-#define ERROR_SCALING_FACTOR 400.0f
+#define ERROR_SCALING_FACTOR 1.0f
 
 // A switch to enable/disable the motor simulation.
 // Set to 1 to use the internal motor simulation (no hardware needed).

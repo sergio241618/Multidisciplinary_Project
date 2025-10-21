@@ -7,7 +7,7 @@
 // Conversion factor from radians per second to Revolutions Per Minute (RPM)
 #define RAD_S_TO_RPM 9.5492965855f
 // Custom scaling factor to increase the final target RPM
-#define RPM_SCALING_FACTOR 4.0f
+#define RPM_SCALING_FACTOR 4.5f
 
 // --- Bezier Curve Polynomial Coefficients ---
 static const float R1 = 252.0f, R2 = 1050.0f, R3 = 1800.0f;

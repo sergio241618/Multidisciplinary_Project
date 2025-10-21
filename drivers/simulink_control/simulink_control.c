@@ -14,24 +14,10 @@
 #include "simulink_control.h"
 #include "rtwtypes.h"
 
-//MI PSO
-/*#define Kp 0.36931f 
-#define Ki 32.962f
-#define Kd 0.11452f*/
-
-//PSO CARLOS
-/*#define Kp 21.5026f
-#define Ki 3.9638f
-#define Kd 0*/
-
-//JORCH ENTRE 400
-/*#define Kp 0.12f
-#define Ki 0.05f
-#define Kd 0.005*/
-
-#define Kp 1.4156f
-#define Ki 177.0763f
-#define Kd 0.038567f
+#define Kp 0.016f
+#define Ki 2.0f
+#define Kd 0.01f
+#define N 9000.0f
 
 /* --- Global Variable Definitions --- */
 DW_simulink_control_T simulink_control_DW;
@@ -63,7 +49,7 @@ void simulink_control_step(void)
   // Main PID equation: u_k = Kp * (P_term + I_term + D_term)
   simulink_control_Y.u_k = (
       // --- D Term Output ---
-      (denAccum - simulink_control_DW.FilterDifferentiatorTF_states) * 0.009931682274340237 * 9968.7876673585
+      (denAccum - simulink_control_DW.FilterDifferentiatorTF_states) * 0.009931682274340237 * N
       
       // --- P and I Term Sum ---
       + (simulink_control_U.error_signal           // Proportional (P) term
