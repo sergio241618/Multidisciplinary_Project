@@ -14,9 +14,24 @@
 #include "simulink_control.h"
 #include "rtwtypes.h"
 
-#define Kp 1.0f  //0.36931f
+//MI PSO
+/*#define Kp 0.36931f 
 #define Ki 32.962f
-#define Kd 0.11452f
+#define Kd 0.11452f*/
+
+//PSO CARLOS
+/*#define Kp 21.5026f
+#define Ki 3.9638f
+#define Kd 0*/
+
+//JORCH ENTRE 400
+/*#define Kp 0.12f
+#define Ki 0.05f
+#define Kd 0.005*/
+
+#define Kp 1.4156f
+#define Ki 177.0763f
+#define Kd 0.038567f
 
 /* --- Global Variable Definitions --- */
 DW_simulink_control_T simulink_control_DW;

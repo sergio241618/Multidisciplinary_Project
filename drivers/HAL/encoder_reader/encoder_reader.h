@@ -10,8 +10,7 @@
 // The smoothing factor for the Exponential Moving Average filter.
 // Value is between 0.0 and 1.0.
 // A smaller value results in a smoother (but slower to react) signal.
-// A good starting point is 0.1.
-#define RPM_FILTER_ALPHA 0.1f
+#define RPM_FILTER_ALPHA 0.5f
 
 /**
  * @brief Initializes the GPIO pins and interrupts for the encoder.

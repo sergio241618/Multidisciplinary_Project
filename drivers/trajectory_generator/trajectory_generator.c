@@ -1,26 +1,43 @@
 #include "trajectory_generator.h"
 #include <math.h>
 
+//Constant definitions for trajectory generation
+
+// --- Conversion & Scaling Factors ---
+// Conversion factor from radians per second to Revolutions Per Minute (RPM)
+#define RAD_S_TO_RPM 9.5492965855f
+// Custom scaling factor to increase the final target RPM
+#define RPM_SCALING_FACTOR 4.0f
+
+// --- Bezier Curve Polynomial Coefficients ---
+static const float R1 = 252.0f, R2 = 1050.0f, R3 = 1800.0f;
+static const float R4 = 1575.0f, R5 = 700.0f, R6 = 126.0f;
+
+// --- Base Velocity Profile Parameters ---
+// Base maximum velocity of the profile, in radians per second
+static const float KF_RAD_S = 24.0f;
+// Original, unscaled time profile parameters
+static const float ORIGINAL_SHIFT = 0.0f;
+static const float ORIGINAL_ADJUSTMENT = 0.5f;
+static const float ORIGINAL_DURATION = 2.8f + ORIGINAL_SHIFT + ORIGINAL_ADJUSTMENT;
+// The desired total duration for the entire trajectory
+static const float DESIRED_DURATION = 40.0f;
+
 /**
  * @brief A helper function that calculates a specific 5th-order Bezier polynomial.
- * @param K1 A normalized time value (from 0.0 to 1.0) representing the progress
+ * @param k1 A normalized time value (from 0.0 to 1.0) representing the progress
  * along the curve segment.
  * @return The output of the polynomial, which scales the velocity during ramps.
- * @note 'static' means this function is only visible and usable within this file.
  */
-static float Bezier(float K1) {
-    // These are the constant coefficients of the 5th-order polynomial.
-    const float r1 = 252.0f, r2 = 1050.0f, r3 = 1800.0f;
-    const float r4 = 1575.0f, r5 = 700.0f, r6 = 126.0f;
+static float Bezier(float k1) {
+    // Pre-calculate powers of k1 for efficiency, avoiding repeated pow() calls.
+    float k1_pow_2 = k1 * k1;
+    float k1_pow_3 = k1_pow_2 * k1;
+    float k1_pow_4 = k1_pow_3 * k1;
+    float k1_pow_5 = k1_pow_4 * k1;
 
-    // Pre-calculate powers of K1 for efficiency, avoiding repeated pow() calls.
-    float K1_pow_2 = K1 * K1;
-    float K1_pow_3 = K1_pow_2 * K1;
-    float K1_pow_4 = K1_pow_3 * K1;
-    float K1_pow_5 = K1_pow_4 * K1;
-
-    // The polynomial equation: V = K1^5 * (r1 - r2*K1 + r3*K1^2 - ...)
-    return K1_pow_5 * (r1 - (r2 * K1) + (r3 * K1_pow_2) - (r4 * K1_pow_3) + (r5 * K1_pow_4) - (r6 * K1_pow_5));
+    // The polynomial equation: V = k1^5 * (r1 - r2*k1 + r3*k1^2 - ...)
+    return k1_pow_5 * (R1 - (R2 * k1) + (R3 * k1_pow_2) - (R4 * k1_pow_3) + (R5 * k1_pow_4) - (R6 * k1_pow_5));
 }
 
 /**
@@ -29,64 +46,71 @@ static float Bezier(float K1) {
  * @return The calculated reference speed in Revolutions Per Minute (RPM).
  */
 float trajectory_get_reference_rpm(float t_seconds) {
-    // --- Curve Parameters ---
-    // KF is the base maximum velocity of the profile, in radians per second.
-    const float KF_rad_s = 24.0f;
-
-    // These constants define the shape of the original, unscaled time profile.
-    const float shift_orig = 0.0f;
-    const float tajuste_orig = 0.5f;
-    const float duracion_original = 2.8f + shift_orig + tajuste_orig; // Results in 3.3s
-
-    // The desired total duration for the entire trajectory.
-    const float duracion_deseada = 40.0f; 
-
-    // Calculate the scaling factor to stretch the 3.3s profile to the desired duration.
-    const float factor_escala = duracion_deseada / duracion_original;
+    // Calculate the scaling factor to stretch the original profile to the desired duration.
+    const float scale_factor = DESIRED_DURATION / ORIGINAL_DURATION;
 
     // --- Scaled Time Markers ---
-
-    const float T1 = (0.1f + shift_orig) * factor_escala;
-    const float T2 = (0.5f + shift_orig) * factor_escala;
-    const float T3 = (1.0f + shift_orig + tajuste_orig) * factor_escala;
-    const float T4 = (1.7f + shift_orig + tajuste_orig) * factor_escala;
-    const float T5 = (2.7f + shift_orig + tajuste_orig) * factor_escala;
-    const float T6 = (2.8f + shift_orig + tajuste_orig) * factor_escala;
-
-    // Variable to hold the calculated velocity in rad/s before the final conversion.
-    float v_bezier_rad_s = 0.0f;
+    // An array holds the key time points that define each segment of the profile.
+    const float time_markers[6] = {
+        (0.1f + ORIGINAL_SHIFT) * scale_factor,                               // T1: End of initial hold
+        (0.5f + ORIGINAL_SHIFT) * scale_factor,                               // T2: End of first ramp-up
+        (1.0f + ORIGINAL_SHIFT + ORIGINAL_ADJUSTMENT) * scale_factor,         // T3: End of first constant speed hold
+        (1.7f + ORIGINAL_SHIFT + ORIGINAL_ADJUSTMENT) * scale_factor,         // T4: End of ramp-down
+        (2.7f + ORIGINAL_SHIFT + ORIGINAL_ADJUSTMENT) * scale_factor,         // T5: End of second constant speed hold
+        (2.8f + ORIGINAL_SHIFT + ORIGINAL_ADJUSTMENT) * scale_factor          // T6: End of second ramp-up
+    };
 
     // --- Velocity Profile Logic ---
-    if (t_seconds <= T1) {
-        // Segment 1: Initial hold at zero speed.
-        v_bezier_rad_s = 0;
-    } else if (t_seconds <= T2) {
-        // Segment 2: Ramp up to 100% of KF using the Bezier curve.
-        // K1 is the normalized time (0.0 to 1.0) within this segment.
-        float K1 = (t_seconds - T1) / (T2 - T1);
-        v_bezier_rad_s = KF_rad_s * Bezier(K1);
-    } else if (t_seconds <= T3) {
-        // Segment 3: Hold at constant 100% of KF.
-        v_bezier_rad_s = KF_rad_s;
-    } else if (t_seconds <= T4) {
-        // Segment 4: Ramp down to 50% of KF using the Bezier curve.
-        float K1 = (t_seconds - T3) / (T4 - T3);
-        v_bezier_rad_s = KF_rad_s - KF_rad_s * 0.5f * Bezier(K1);
-    } else if (t_seconds <= T5) {
-        // Segment 5: Hold at constant 50% of KF.
-        v_bezier_rad_s = (KF_rad_s * 0.5f);
-    } else if (t_seconds <= T6) {
-        // Segment 6: Ramp up to 75% of KF using the Bezier curve.
-        float K1 = (t_seconds - T5) / (T6 - T5);
-        v_bezier_rad_s = (KF_rad_s * 0.5f) + KF_rad_s * 0.25f * Bezier(K1);
-    } else {
-        // Final Segment: Hold at 75% of KF indefinitely after the profile ends.
-        v_bezier_rad_s = KF_rad_s * (1.0f - 0.25f);
+    float target_velocity_rad_s = 0.0f;
+    int segment = 0;
+
+    // Determine which segment the current time falls into.
+    for (int i = 0; i < 6; i++) {
+        if (t_seconds <= time_markers[i]) {
+            segment = i + 1;
+            break;
+        }
+    }
+    // If time is past the last marker, it's the final segment.
+    if (segment == 0) {
+        segment = 7;
+    }
+
+    // Use a switch-case for clean, organized logic based on the current segment.
+    switch (segment) {
+        case 1: // Segment 1 (t <= T1): Initial hold at zero speed.
+            target_velocity_rad_s = 0.0f;
+            break;
+
+        case 2: // Segment 2 (T1 < t <= T2): Ramp up to 100% of KF.
+            float k1_ramp1 = (t_seconds - time_markers[0]) / (time_markers[1] - time_markers[0]);
+            target_velocity_rad_s = KF_RAD_S * Bezier(k1_ramp1);
+            break;
+
+        case 3: // Segment 3 (T2 < t <= T3): Hold at constant 100% of KF.
+            target_velocity_rad_s = KF_RAD_S;
+            break;
+
+        case 4: // Segment 4 (T3 < t <= T4): Ramp down to 50% of KF.
+            float k1_ramp2 = (t_seconds - time_markers[2]) / (time_markers[3] - time_markers[2]);
+            target_velocity_rad_s = KF_RAD_S - KF_RAD_S * 0.5f * Bezier(k1_ramp2);
+            break;
+
+        case 5: // Segment 5 (T4 < t <= T5): Hold at constant 50% of KF.
+            target_velocity_rad_s = KF_RAD_S * 0.5f;
+            break;
+
+        case 6: // Segment 6 (T5 < t <= T6): Ramp up to 75% of KF.
+            float k1_ramp3 = (t_seconds - time_markers[4]) / (time_markers[5] - time_markers[4]);
+            target_velocity_rad_s = (KF_RAD_S * 0.5f) + KF_RAD_S * 0.25f * Bezier(k1_ramp3);
+            break;
+
+        case 7: // Final Segment (t > T6): Hold at 75% of KF indefinitely.
+        default:
+            target_velocity_rad_s = KF_RAD_S * (1.0f - 0.25f);
+            break;
     }
 
     // --- Final Conversion to RPM ---
-    // The calculated velocity in rad/s is converted to RPM.
-    // The conversion factor is (60 seconds/minute) / (2 * PI radians/revolution).
-    // Custom scaling factor of 1.7 is then applied to increase the final RPM.
-    return v_bezier_rad_s * 9.5492965855f * 1.7f;
+    return target_velocity_rad_s * RAD_S_TO_RPM * RPM_SCALING_FACTOR;
 }
