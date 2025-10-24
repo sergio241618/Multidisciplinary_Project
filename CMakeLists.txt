@@ -4,6 +4,7 @@ list(APPEND EXTRA_COMPONENT_DIRS
     "${CMAKE_SOURCE_DIR}/drivers/HAL/motor_control"
     "${CMAKE_SOURCE_DIR}/drivers/HAL/encoder_reader"
     "${CMAKE_SOURCE_DIR}/drivers/simulink_control"
+    "${CMAKE_SOURCE_DIR}/drivers/PID_Difuso"       
     "${CMAKE_SOURCE_DIR}/drivers/trajectory_generator"
 )
 
